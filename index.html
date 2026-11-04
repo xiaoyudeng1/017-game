@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>0.17</title>
+<style>
+  :root { --bg:#0e1220; --fg:#e9edf7; --dim:#6b7590; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    overflow:hidden; user-select:none; }
+  #bg, #bg2 { position:fixed; inset:-20%; z-index:0; pointer-events:none; }
+  #bg { background: radial-gradient(60% 50% at 50% 42%, hsla(var(--h,220), 70%, 45%, .16), transparent 70%); transition: background 1.4s ease; }
+  #bg2 { background: radial-gradient(45% 40% at 22% 78%, hsla(var(--h2,260), 65%, 40%, .10), transparent 72%);
+    animation: drift 26s ease-in-out infinite alternate; filter: blur(10px); }
+  @keyframes drift { from { transform: translate3d(-3%, -2%, 0) scale(1); } to { transform: translate3d(4%, 3%, 0) scale(1.08); } }
+  #fx, #fx2 { position:fixed; inset:0; z-index:0; pointer-events:none; }
+  #fx2 { z-index:0; }
+  #app { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:1; }
+
+  #hud { position:absolute; top:0; left:0; right:0; padding:18px 22px;
+    display:flex; justify-content:space-between; font-size:13px; letter-spacing:.08em; color:var(--dim); z-index:5; }
+  #level { color:var(--fg); }
+  #homeBtn { background:transparent; border:1px solid rgba(255,255,255,.18); color:var(--dim);
+    border-radius:999px; padding:5px 14px; font-size:12px; letter-spacing:.1em; cursor:pointer; }
+  #homeBtn:hover { color:var(--fg); border-color:rgba(255,255,255,.4); }
+  #timebar { position:absolute; top:0; left:0; height:2px; background:#5b8cff; width:100%; z-index:6;
+    transition:width .1s linear; }
+
+  #grid { display:grid; }
+  .tile { border-radius:14px; cursor:pointer; transition:transform .1s ease, background .25s ease; }
+  .tile:active { transform:scale(.96); }
+  .tile.wrong { animation:shake .28s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+  #msg { position:absolute; bottom:7%; left:0; right:0; text-align:center;
+    font-size:15px; letter-spacing:.1em; color:var(--dim); min-height:22px; transition:color .3s; }
+  #msg.good { color:#7cc4a0; }
+
+  #intro,#over { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:20px; padding:30px; text-align:center;
+    background:radial-gradient(75% 60% at 50% 42%, rgba(14,18,32,.10), rgba(10,13,22,.72) 82%);
+    backdrop-filter:blur(3px); z-index:10; }
+  #intro h1 { font-size:clamp(44px,13vw,80px); margin:0; font-weight:600; letter-spacing:.04em; }
+  #intro p,#over p { margin:0; max-width:23em; line-height:1.85; color:var(--dim); font-size:14px; }
+  .modes { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .mode { border:1px solid rgba(255,255,255,.18); background:transparent; color:var(--fg);
+    padding:11px 20px; border-radius:999px; font-size:14px; letter-spacing:.1em; cursor:pointer;
+    transition:all .18s; }
+  .mode.on { border-color:#5b8cff; background:rgba(91,140,255,.14); }
+  .mode small { display:block; font-size:10px; color:var(--dim); margin-top:3px; letter-spacing:.04em; }
+  .btn { border:1px solid rgba(255,255,255,.22); background:transparent; color:var(--fg);
+    padding:13px 34px; border-radius:999px; font-size:15px; letter-spacing:.14em; cursor:pointer; transition:.2s; }
+  .btn:hover { background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.4); }
+  .hidden { display:none !important; }
+  #music { display:flex; align-items:center; gap:12px; margin-top:4px; font-size:12px; color:var(--dim); }
+  #mNow { letter-spacing:.06em; }
+  #mLink { color:#6b7590; text-decoration:none; border-bottom:1px solid rgba(255,255,255,.15); }
+  #mLink:hover { color:var(--fg); }
+  #mSkip { background:transparent; border:1px solid rgba(255,255,255,.18); color:var(--dim);
+    border-radius:999px; padding:4px 12px; font-size:11px; cursor:pointer; letter-spacing:.1em; }
+  #mSkip:hover { color:var(--fg); border-color:rgba(255,255,255,.4); }
+  #overtitle { font-size:36px; margin:0; font-weight:600; }
+  #mascot { position:absolute; left:16px; bottom:34px; width:92px; border-radius:16px;
+    box-shadow:0 12px 34px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06);
+    animation:bob 4.4s ease-in-out infinite; opacity:.94; pointer-events:none; }
+  @keyframes bob {
+    0%,100% { transform:translateY(0) rotate(-1.6deg); }
+    50%     { transform:translateY(-9px) rotate(1.6deg); }
+  }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<canvas id="fx2"></canvas>
+<div id="app">
+  <div id="timebar"></div>
+  <div id="hud"><span>第 <b id="level">1</b> 关</span><span id="hint">找出那个几乎没有颜色的</span><button id="homeBtn" title="回主页">返回</button></div>
+  <div id="grid"></div>
+  <div id="msg"></div>
+
+  <div id="intro">
+    <img id="mascot" src="assets/girl.png" alt="">
+    <h1>0.17</h1>
+    <p>每一关里，有一块的颜色几乎被抽干了。<br>找出它。越往后，越难看出来。</p>
+    <div class="modes" id="modes">
+      <button class="mode on" data-m="easy">简单<small>后期反转</small></button>
+      <button class="mode" data-m="normal">正常<small>反转 + 褪色</small></button>
+      <button class="mode" data-m="hard">困难<small>反转 + 会跑 + 褪色</small></button>
+    </div>
+    <button class="btn" id="startBtn">开始</button>
+    <div id="music">
+      <span id="mNow">♪ —</span>
+      <a id="mLink" href="#" target="_blank" rel="noreferrer">原曲</a>
+      <button id="mSkip" title="换一首">跳过</button>
+    </div>
+  </div>
+
+  <div id="over" class="hidden">
+    <h2 id="overtitle">到这儿了</h2>
+    <p id="overtext"></p>
+    <button class="btn" id="againBtn">再来</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const gridEl = document.getElementById('grid');
+  const levelEl = document.getElementById('level');
+  const hintEl = document.getElementById('hint');
+  const msgEl = document.getElementById('msg');
+  const timebar = document.getElementById('timebar');
+  const intro = document.getElementById('intro');
+  const over = document.getElementById('over');
+
+  const hudEl = document.getElementById('hud');
+  const MODES = {
+    easy:   { reverse:true, run:false, fade:false },
+    normal: { reverse:true, run:false, fade:true  },
+    hard:   { reverse:true, run:true,  fade:true  },
+  };
+
+  let mode = 'easy';
+  let level = 1, timeLeft = 0, maxT = 1, timer = null, runTimer = null, fadeTimer = null;
+  let targetIdx = 0, playing = false, n = 2, cell = 84, gap = 10;
+  let hue = 0, baseL = 55, targetSat = 16, tileEls = [], reverseMode = false;
+
+  const minSat = 16;   // 目标块"几乎没有颜色"的饱和度
+
+  function layout(n) {
+    const g = Math.max(6, Math.round(Math.min(innerWidth, innerHeight) * 0.012));
+    const avail = Math.min(innerWidth, innerHeight) * 0.78;
+    cell = Math.floor((avail - g * (n - 1)) / n);
+    gridEl.style.gridTemplateColumns = `repeat(${n}, ${cell}px)`;
+    gridEl.style.gap = g + 'px';
+    return g;
+  }
+
+  function paint(el, sat, light) {
+    el.style.background = `hsl(${hue} ${sat}% ${light}%)`;
+  }
+
+  function buildLevel() {
+    clearInterval(runTimer); clearInterval(fadeTimer);
+
+    n = Math.min(2 + Math.floor(level / 2), 8);
+    gap = layout(n);
+    hue = Math.floor(Math.random() * 360);
+    document.documentElement.style.setProperty('--h', hue);
+    document.documentElement.style.setProperty('--h2', (hue + 140) % 360);
+    baseL = 52 + Math.floor(Math.random() * 8);
+
+    // 十关以后反转：场上只剩一块还有颜色
+    reverseMode = MODES[mode].reverse && level >= 9;
+    hintEl.textContent = reverseMode ? '找出唯一还有颜色的' : '找出那个几乎没有颜色的';
+
+    const total = n * n;
+    targetIdx = Math.floor(Math.random() * total);
+    tileEls = [];
+    gridEl.innerHTML = '';
+
+    const normalSat = Math.max(22, 62 - level * 4);
+    const drop = Math.max(0.17, 0.55 - level * 0.035);
+    const normalL = baseL;
+
+    for (let i = 0; i < total; i++) {
+      const d = document.createElement('div');
+      d.className = 'tile';
+      d.style.width = d.style.height = cell + 'px';
+      const isTarget = i === targetIdx;
+      if (reverseMode) {
+        paint(d, isTarget ? normalSat : minSat, isTarget ? normalL : baseL + 3 * drop);
+      } else {
+        paint(d, isTarget ? minSat : normalSat, isTarget ? baseL + 3 * drop : normalL);
+      }
+      d.addEventListener('pointerdown', () => pick(i, d));
+      gridEl.appendChild(d);
+      tileEls.push(d);
+    }
+
+    levelEl.textContent = level;
+    msgEl.textContent = '';
+    msgEl.className = '';
+
+    // 机制二：会跑
+    if (MODES[mode].run && level >= 3) {
+      runTimer = setInterval(swapTarget, 2000);
+    }
+    // 机制三：褪色（只针对"正常色"的那些，慢慢逼近目标色）
+    if (MODES[mode].fade) {
+      if (!reverseMode) {
+        // 正常局：周围的颜色慢慢褪掉，跟目标拉平
+        let s = normalSat;
+        fadeTimer = setInterval(() => {
+          if (!playing) return;
+          s = Math.max(minSat + 1, s - 0.9);
+          for (let i = 0; i < tileEls.length; i++) {
+            if (i !== targetIdx) paint(tileEls[i], Math.round(s), normalL);
+          }
+        }, 120);
+      } else {
+        // 反转局：唯一有颜色的那一块也在褪，你得更快
+        let s = normalSat;
+        fadeTimer = setInterval(() => {
+          if (!playing) return;
+          s = Math.max(minSat + 1, s - 0.6);
+          paint(tileEls[targetIdx], Math.round(s), normalL);
+        }, 150);
+      }
+    }
+  }
+
+  function swapTarget() {
+    if (!playing) return;
+    const r = Math.floor(targetIdx / n), c = targetIdx % n;
+    const dirs = [[0,1],[0,-1],[1,0],[-1,0]].filter(([dr,dc]) => {
+      const nr = r + dr, nc = c + dc;
+      return nr >= 0 && nr < n && nc >= 0 && nc < n;
+    });
+    const [dr, dc] = dirs[Math.floor(Math.random() * dirs.length)];
+    const j = (r + dr) * n + (c + dc);
+
+    // 交换外观
+    const a = tileEls[targetIdx], b = tileEls[j];
+    const bs = b.style.background, as = a.style.background;
+    a.style.background = bs; b.style.background = as;
+    targetIdx = j;
+  }
+
+  function pick(i, el) {
+    if (!playing) return;
+    if (i === targetIdx) {
+      playing = false;
+      clearInterval(timer); clearInterval(runTimer); clearInterval(fadeTimer);
+      if (window.__sfxCorrect) window.__sfxCorrect();
+      msgEl.textContent = ['看见了。','这块。','你比它先发现。','0.17。'][Math.floor(Math.random()*4)];
+      msgEl.className = 'good';
+      level++;
+      setTimeout(() => { level > 20 ? end(true) : startLevel(); }, 480);
+    } else {
+      el.classList.add('wrong');
+      setTimeout(() => el.classList.remove('wrong'), 300);
+      if (window.__sfxWrong) window.__sfxWrong();
+      timeLeft = Math.max(0, timeLeft - 1.4);
+      msgEl.textContent = '不是这块。';
+      msgEl.className = '';
+    }
+  }
+
+  function startLevel() {
+    buildLevel();
+    maxT = Math.max(4.5, 11 - level * 0.45);
+    timeLeft = maxT;
+    playing = true;
+    clearInterval(timer);
+    timer = setInterval(() => {
+      timeLeft -= 0.05;
+      timebar.style.width = Math.max(0, (timeLeft / maxT) * 100) + '%';
+      if (timeLeft <= 0) { clearInterval(timer); end(false); }
+    }, 50);
+  }
+
+  function end(win) {
+    playing = false;
+    clearInterval(timer); clearInterval(runTimer); clearInterval(fadeTimer);
+    over.classList.remove('hidden');
+    document.getElementById('overtitle').textContent = win ? '看见到最后了' : '到这儿了';
+    document.getElementById('overtext').textContent = win
+      ? '二十关（' + ({easy:'简单',normal:'正常',hard:'困难'})[mode] + '）。最后那块几乎和背景一个颜色，你还是找到了。'
+      : '你停在第 ' + level + ' 关（' + ({easy:'简单',normal:'正常',hard:'困难'})[mode] + '）。颜色越淡越难认——这很正常，我也是量了很久才看出来的。';
+  }
+
+  function reset(lvl = 1) {
+    level = lvl; hudEl.style.display = 'flex'; over.classList.add('hidden'); intro.classList.add('hidden');
+    timebar.style.width = '100%';
+    startLevel();
+  }
+
+  document.querySelectorAll('.mode').forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll('.mode').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      mode = b.dataset.m;
+    };
+  });
+  document.getElementById('startBtn').onclick = () => reset();
+  document.getElementById('againBtn').onclick = () => reset();
+  document.getElementById('homeBtn').onclick = () => {
+    playing = false;
+    clearInterval(timer); clearInterval(runTimer); clearInterval(fadeTimer);
+    over.classList.add('hidden');
+    intro.classList.remove('hidden');
+    gridEl.innerHTML = '';
+    hudEl.style.display = 'none';
+    timebar.style.width = '100%';
+  };
+  // ── 背景：一群慢慢飘的方块 ──
+  (() => {
+    const cv = document.getElementById('fx');
+    const g = cv.getContext('2d');
+    let W = 0, H = 0, parts = [];
+    const DPR = Math.min(devicePixelRatio || 1, 2);
+
+    function resize() {
+      W = cv.width = Math.floor(innerWidth * DPR);
+      H = cv.height = Math.floor(innerHeight * DPR);
+      cv.style.width = innerWidth + 'px';
+      cv.style.height = innerHeight + 'px';
+    }
+
+    function seed() {
+      parts = [];
+      const count = 18;
+      for (let i = 0; i < count; i++) {
+        parts.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          s: (44 + Math.random() * 130) * DPR,
+          a: 0.055 + Math.random() * 0.10,
+          vx: (Math.random() - .5) * 0.12 * DPR,
+          vy: -(0.06 + Math.random() * 0.22) * DPR,
+          rot: Math.random() * Math.PI,
+          vr: (Math.random() - .5) * 0.0016,
+          hue: (Math.random() - .5) * 60,
+        });
+      }
+    }
+
+    function tick() {
+      g.clearRect(0, 0, W, H);
+      const h = Number(getComputedStyle(document.documentElement).getPropertyValue('--h')) || 220;
+      for (const p of parts) {
+        p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+        if (p.y + p.s < 0) { p.y = H + p.s; p.x = Math.random() * W; }
+        if (p.x < -p.s) p.x = W + p.s;
+        if (p.x > W + p.s) p.x = -p.s;
+
+        g.save();
+        g.translate(p.x, p.y);
+        g.rotate(p.rot);
+        g.fillStyle = `hsla(${h + (p.hue || 0)}, 75%, 64%, ${p.a})`;
+        g.shadowColor = `hsla(${h}, 80%, 60%, 0.10)`;
+        g.shadowBlur = 28 * DPR;
+        const r = p.s * 0.18;
+        const w = p.s, hh = p.s;
+        g.beginPath();
+        g.roundRect ? g.roundRect(-w/2, -hh/2, w, hh, r) : g.rect(-w/2, -hh/2, w, hh);
+        g.fill();
+        g.restore();
+      }
+      requestAnimationFrame(tick);
+    }
+
+    resize(); seed(); tick();
+    addEventListener('resize', () => { resize(); seed(); });
+  })();
+  // 开局先给整页一个色，避免主页面是死黑
+  document.documentElement.style.setProperty('--h', Math.floor(Math.random()*360));
+  document.documentElement.style.setProperty('--h2', Math.floor(Math.random()*360));
+  hudEl.style.display = 'none';
+  if (location.hash.includes('#btn')) setTimeout(() => document.getElementById('startBtn').click(), 100);
+  if (location.hash.startsWith('#play')) {
+    const p = new URLSearchParams(location.hash.slice(1));
+    if (p.get('m')) mode = p.get('m');
+    reset(Number(p.get('lv')) || 1);
+  }
+  addEventListener('resize', () => { if (playing) buildLevel(); });
+})();
+</script>
+<script>
+(() => {
+  const cv = document.getElementById('fx2');
+  const g = cv.getContext('2d');
+  const DPR = Math.min(devicePixelRatio || 1, 2);
+  let W = 0, H = 0, items = [], imgs = [];
+  const SRC = ['assets/a.webp', 'assets/b.webp', 'assets/c.png'];
+
+  function resize() {
+    W = cv.width = Math.floor(innerWidth * DPR);
+    H = cv.height = Math.floor(innerHeight * DPR);
+    cv.style.width = innerWidth + 'px';
+    cv.style.height = innerHeight + 'px';
+  }
+
+  function seed() {
+    items = [];
+    for (let i = 0; i < 7; i++) {
+      items.push({
+        img: i % 3,
+        x: Math.random() * W,
+        y: Math.random() * H,
+        s: (70 + Math.random() * 85) * DPR,
+        a: 0.24 + Math.random() * 0.22,
+        vx: (Math.random() - .5) * 0.16 * DPR,
+        vy: -(0.05 + Math.random() * 0.16) * DPR,
+        rot: (Math.random() - .5) * 0.5,
+        vr: (Math.random() - .5) * 0.0012,
+        bob: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+
+  function tick(t) {
+    g.clearRect(0, 0, W, H);
+    for (const p of items) {
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      p.bob += 0.006;
+      if (p.y + p.s < 0) { p.y = H + p.s; p.x = Math.random() * W; }
+      if (p.x < -p.s) p.x = W + p.s;
+      if (p.x > W + p.s) p.x = -p.s;
+
+      const img = imgs[p.img];
+      if (!img || !img.complete || !img.naturalWidth) continue;
+      const wob = Math.sin(p.bob) * 0.08;
+
+      g.save();
+      g.globalAlpha = p.a;
+      g.filter = 'saturate(.75) brightness(.95)';
+      g.translate(p.x, p.y);
+      g.rotate(p.rot + wob);
+      roundRect(g, -p.s / 2, -p.s / 2, p.s, p.s, p.s * 0.22);
+      g.clip();
+      g.drawImage(img, -p.s / 2, -p.s / 2, p.s, p.s);
+      g.filter = 'none';
+      g.restore();
+    }
+    requestAnimationFrame(tick);
+  }
+
+  SRC.forEach((src, i) => { const im = new Image(); im.src = src; imgs[i] = im; });
+  resize(); seed(); requestAnimationFrame(tick);
+  addEventListener('resize', () => { resize(); seed(); });
+})();
+</script>
+<script>
+(() => {
+  // ── 背景音乐：随机循环，可跳过 ──
+  const SONGS = [
+    { name: '我的悲伤', file: 'music/m1.mp3', link: 'https://www.bilibili.com/video/BV1isKE68ErK' },
+    { name: '死别',     file: 'music/m2.mp3', link: 'https://www.bilibili.com/video/BV1yVEZzeEzV' },
+    { name: '大狗叫',   file: 'music/m3.mp3', link: 'https://www.bilibili.com/video/BV1EoL96ZEoM' },
+    { name: '打火机',   file: 'music/m4.mp3', link: 'https://www.bilibili.com/video/BV1AestzcE91' },
+    { name: '琵琶曲',   file: 'music/m5.mp3', link: 'https://www.bilibili.com/video/BV1VQYu6NECu?p=2' },
+  ];
+
+  const audio = new Audio();
+  audio.loop = false;
+  audio.volume = 1.0;
+  audio.preload = 'auto';
+
+  const nowEl = document.getElementById('mNow');
+  const linkEl = document.getElementById('mLink');
+  const skipEl = document.getElementById('mSkip');
+
+  let order = [], at = -1, started = false;
+
+  function reshuffle() {
+    order = SONGS.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    // 别让第一首跟刚才那首一样
+    if (order[0] === at && order.length > 1) [order[0], order[1]] = [order[1], order[0]];
+    at = -1;
+  }
+
+  function show(s) {
+    nowEl.textContent = '♪ ' + s.name;
+    linkEl.href = s.link;
+    linkEl.textContent = s.link.replace('https://www.bilibili.com/video/', '').split('?')[0];
+  }
+
+  function takeNext() {
+    if (!order.length || at >= order.length - 1) reshuffle();
+    at++;
+    return SONGS[order[at]];
+  }
+
+  function playNext() {
+    const s = takeNext();
+    audio.src = s.file;
+    audio.play().catch(() => {});
+    show(s);
+  }
+
+  audio.addEventListener('ended', playNext);
+  skipEl.addEventListener('click', e => { e.stopPropagation(); playNext(); });
+
+  // 浏览器要求先有一次点击才能出声
+  function kick() {
+    if (started) return;
+    started = true;
+    if (!audio.src) playNext(); else audio.play().catch(() => {});
+    removeEventListener('pointerdown', kick, true);
+  }
+  addEventListener('pointerdown', kick, true);
+
+  // 先摆一首出来（不播），这样界面一开就有歌名
+  order = SONGS.map((_, i) => i);
+  at = -1;
+  const first = takeNext();
+  audio.src = first.file;
+  show(first);
+})();
+</script>
+<script>
+(() => {
+  // ── 点击音效：正确时按 大狗叫1 → 大狗叫2 → 叫 的顺序循环 ──
+  // 点对：大狗叫1 / 大狗叫2 / 叫 里随机一个（不连着重）；点错：曼波
+  const SEQ = ['sfx/s1.mp3', 'sfx/s2.mp3', 'sfx/s3.mp3'];
+  const WRONG = 'sfx/s4.mp3';
+  let last = -1;
+  const cache = {};
+
+  function play(file, vol) {
+    let a = cache[file];
+    if (!a) { a = new Audio(file); a.preload = 'auto'; cache[file] = a; }
+    a.volume = vol;
+    try { a.currentTime = 0; } catch (e) {}
+    a.play().catch(() => {});
+  }
+
+  window.__sfxCorrect = () => { let i; do { i = Math.floor(Math.random() * SEQ.length); } while (i === last); last = i; play(SEQ[i], 1.0); };
+  window.__sfxWrong = () => play(WRONG, 0.9);
+})();
+</script>
+</body>
+</html>
