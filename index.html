@@ -326,7 +326,7 @@
 
     g.fillStyle = '#565f78';
     g.font = '34px "Microsoft YaHei", sans-serif';
-    g.fillText('xiaoyudeng1.github.io/017-game', W / 2, H - 70);
+    g.fillText('xiaoyudeng1.github.io/017-game', W / 2, H - 60);
 
     const exportCard = () => {
       try { return cv.toDataURL('image/jpeg', 0.92) }
@@ -337,11 +337,11 @@
       const fish = new Image();
       fish.onload = () => {
         const s = 300;
-        try { g.drawImage(fish, W - s - 60, H - s - 120, s, s) } catch (e) {}
+        try { g.drawImage(fish, W - s - 60, H - s - 200, s, s) } catch (e) {}
         g.fillStyle = '#e9edf7';
         g.font = 'bold 64px "Microsoft YaHei", sans-serif';
         g.textAlign = 'left';
-        g.fillText('小鱼灯', 80, H - 90);
+        g.fillText('小鱼灯', 80, H - 150);
         resolve(exportCard());
       };
       fish.onerror = () => resolve(exportCard());
