@@ -62,6 +62,9 @@
     border-radius:999px; padding:4px 12px; font-size:11px; cursor:pointer; letter-spacing:.1em; }
   #mSkip:hover { color:var(--fg); border-color:rgba(255,255,255,.4); }
   #overtitle { font-size:36px; margin:0; font-weight:600; }
+  #shareCard { width: min(78vw, 300px); border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,.6); display: none; }
+  .overbtns { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  #saveTip { font-size: 12px; color: var(--dim); opacity: .8; display: none; }
   #mascot { position:absolute; left:16px; bottom:34px; width:92px; border-radius:16px;
     box-shadow:0 12px 34px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06);
     animation:bob 4.4s ease-in-out infinite; opacity:.94; pointer-events:none; }
@@ -100,7 +103,12 @@
   <div id="over" class="hidden">
     <h2 id="overtitle">到这儿了</h2>
     <p id="overtext"></p>
-    <button class="btn" id="againBtn">再来</button>
+    <img id="shareCard" alt="" />
+    <div class="overbtns">
+      <button class="btn" id="saveBtn">保存这张图</button>
+      <button class="btn" id="againBtn">再来</button>
+    </div>
+    <p id="saveTip">手机长按图片保存</p>
   </div>
 </div>
 
@@ -261,14 +269,102 @@
     }, 50);
   }
 
+  // ── 成绩分享图 ──
+  const MODE_NAME = { easy: '简单', normal: '正常', hard: '困难' };
+
+  function drawShareCard(win) {
+    const W = 1080, H = 1440;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+
+    g.fillStyle = '#0b0f1a';
+    g.fillRect(0, 0, W, H);
+
+    const rg = g.createRadialGradient(W * 0.5, H * 0.26, 0, W * 0.5, H * 0.26, W * 0.85);
+    rg.addColorStop(0, 'rgba(90,140,255,.18)');
+    rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = rg;
+    g.fillRect(0, 0, W, H);
+
+    g.textAlign = 'center';
+
+    g.fillStyle = '#e9edf7';
+    g.font = 'bold 200px "Microsoft YaHei", sans-serif';
+    g.fillText('0.17', W / 2, 340);
+
+    g.fillStyle = '#6b7590';
+    g.font = '38px "Microsoft YaHei", sans-serif';
+    g.fillText('小鱼灯做的找色游戏', W / 2, 410);
+
+    g.fillStyle = win ? '#ffd076' : '#56c4d6';
+    g.font = 'bold 132px "Microsoft YaHei", sans-serif';
+    g.fillText(win ? '通关了' : '第 ' + (level - 1) + ' 关', W / 2, 700);
+
+    g.fillStyle = '#6b7590';
+    g.font = '42px "Microsoft YaHei", sans-serif';
+    g.fillText(MODE_NAME[mode] + '模式', W / 2, 780);
+
+    // 一排小方块做装饰：一格是"没有颜色的"
+    const n = 7, cell = 96, gap = 22;
+    const totalW = n * cell + (n - 1) * gap;
+    const x0 = (W - totalW) / 2;
+    const y0 = 890;
+    for (let i = 0; i < n; i++) {
+      const x = x0 + i * (cell + gap);
+      g.fillStyle = i === 3 ? '#a9a0b8' : '#9a7ad6';
+      g.beginPath();
+      const r = 20;
+      g.moveTo(x + r, y0);
+      g.arcTo(x + cell, y0, x + cell, y0 + cell, r);
+      g.arcTo(x + cell, y0 + cell, x, y0 + cell, r);
+      g.arcTo(x, y0 + cell, x, y0, r);
+      g.arcTo(x, y0, x + cell, y0, r);
+      g.closePath();
+      g.fill();
+    }
+
+    g.fillStyle = '#565f78';
+    g.font = '34px "Microsoft YaHei", sans-serif';
+    g.fillText('xiaoyudeng1.github.io/017-game', W / 2, H - 70);
+
+    const exportCard = () => {
+      try { return cv.toDataURL('image/jpeg', 0.92) }
+      catch (e) { return null }   // file:// 下画布被污染时的兜底
+    };
+
+    return new Promise(resolve => {
+      const fish = new Image();
+      fish.onload = () => {
+        const s = 300;
+        try { g.drawImage(fish, W - s - 60, H - s - 120, s, s) } catch (e) {}
+        g.fillStyle = '#e9edf7';
+        g.font = 'bold 64px "Microsoft YaHei", sans-serif';
+        g.textAlign = 'left';
+        g.fillText('小鱼灯', 80, H - 90);
+        resolve(exportCard());
+      };
+      fish.onerror = () => resolve(exportCard());
+      fish.src = 'assets/avatar.png';
+    });
+  }
+
   function end(win) {
     playing = false;
     clearInterval(timer); clearInterval(runTimer); clearInterval(fadeTimer);
     over.classList.remove('hidden');
     document.getElementById('overtitle').textContent = win ? '看见到最后了' : '到这儿了';
     document.getElementById('overtext').textContent = win
-      ? '二十关（' + ({easy:'简单',normal:'正常',hard:'困难'})[mode] + '）。最后那块几乎和背景一个颜色，你还是找到了。'
-      : '你停在第 ' + level + ' 关（' + ({easy:'简单',normal:'正常',hard:'困难'})[mode] + '）。颜色越淡越难认——这很正常，我也是量了很久才看出来的。';
+      ? '二十关（' + MODE_NAME[mode] + '）。最后那块几乎和背景一个颜色，你还是找到了。'
+      : '你停在第 ' + (level - 1) + ' 关（' + MODE_NAME[mode] + '）。';
+    document.getElementById('overtext').style.display = 'none';
+    drawShareCard(win).then(url => {
+      if (!url) return;
+      const img = document.getElementById('shareCard');
+      img.src = url;
+      img.style.display = 'block';
+      document.getElementById('saveTip').style.display = 'block';
+    });
   }
 
   function reset(lvl = 1) {
@@ -285,7 +381,21 @@
     };
   });
   document.getElementById('startBtn').onclick = () => reset();
-  document.getElementById('againBtn').onclick = () => reset();
+  document.getElementById('againBtn').onclick = () => {
+    document.getElementById('shareCard').style.display = 'none';
+    document.getElementById('saveTip').style.display = 'none';
+    reset();
+  };
+  document.getElementById('saveBtn').onclick = () => {
+    const img = document.getElementById('shareCard');
+    if (!img.src) return;
+    const a = document.createElement('a');
+    a.href = img.src;
+    a.download = '0.17-成绩.jpg';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
   document.getElementById('homeBtn').onclick = () => {
     playing = false;
     clearInterval(timer); clearInterval(runTimer); clearInterval(fadeTimer);
@@ -359,6 +469,7 @@
   document.documentElement.style.setProperty('--h', Math.floor(Math.random()*360));
   document.documentElement.style.setProperty('--h2', Math.floor(Math.random()*360));
   hudEl.style.display = 'none';
+  if (location.hash.includes('#share')) { reset(8); setTimeout(() => end(false), 600); }
   if (location.hash.includes('#btn')) setTimeout(() => document.getElementById('startBtn').click(), 100);
   if (location.hash.startsWith('#play')) {
     const p = new URLSearchParams(location.hash.slice(1));
