@@ -114,6 +114,18 @@
 
 <script>
 (() => {
+  // ── 匿名计数：只记数字，不记人 ──
+  const CNT = 'https://abacus.jasoncameron.dev/hit/xiaoyudeng017';
+  let playerNo = 0;
+  function count(key) {
+    try { fetch(CNT + '/' + key, { mode: 'cors' }).then(r => r.json()).catch(() => {}) } catch (e) {}
+  }
+  function countAndGet(key) {
+    return fetch(CNT + '/' + key, { mode: 'cors' })
+      .then(r => r.json()).then(j => (typeof j.value === 'number' ? j.value : 0))
+      .catch(() => 0);
+  }
+
   const gridEl = document.getElementById('grid');
   const levelEl = document.getElementById('level');
   const hintEl = document.getElementById('hint');
@@ -324,6 +336,12 @@
       g.fill();
     }
 
+    if (playerNo > 0) {
+      g.fillStyle = '#7a849e';
+      g.font = '36px "Microsoft YaHei", sans-serif';
+      g.fillText('你是第 ' + playerNo + ' 位打开它的人', W / 2, H - 150);
+    }
+
     g.fillStyle = '#565f78';
     g.font = '34px "Microsoft YaHei", sans-serif';
     g.fillText('xiaoyudeng1.github.io/017-game', W / 2, H - 60);
@@ -358,6 +376,7 @@
       ? '二十关（' + MODE_NAME[mode] + '）。最后那块几乎和背景一个颜色，你还是找到了。'
       : '你停在第 ' + (level - 1) + ' 关（' + MODE_NAME[mode] + '）。';
     document.getElementById('overtext').style.display = 'none';
+    count('end-' + (win ? 'win' : 'lv' + (level - 1)));
     drawShareCard(win).then(url => {
       if (!url) return;
       const img = document.getElementById('shareCard');
@@ -469,6 +488,7 @@
   document.documentElement.style.setProperty('--h', Math.floor(Math.random()*360));
   document.documentElement.style.setProperty('--h2', Math.floor(Math.random()*360));
   hudEl.style.display = 'none';
+  countAndGet('open').then(n => { playerNo = n });
   if (location.hash.includes('#share')) { reset(8); setTimeout(() => end(false), 600); }
   if (location.hash.includes('#btn')) setTimeout(() => document.getElementById('startBtn').click(), 100);
   if (location.hash.startsWith('#play')) {
