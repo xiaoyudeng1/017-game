@@ -377,7 +377,7 @@
       : '你停在第 ' + (level - 1) + ' 关（' + MODE_NAME[mode] + '）。';
     document.getElementById('overtext').style.display = 'none';
     count('end-' + (win ? 'win' : 'lv' + (level - 1)));
-    drawShareCard(win).then(url => {
+    openPromise.then(() => drawShareCard(win)).then(url => {
       if (!url) return;
       const img = document.getElementById('shareCard');
       img.src = url;
@@ -488,7 +488,7 @@
   document.documentElement.style.setProperty('--h', Math.floor(Math.random()*360));
   document.documentElement.style.setProperty('--h2', Math.floor(Math.random()*360));
   hudEl.style.display = 'none';
-  countAndGet('open').then(n => { playerNo = n });
+  const openPromise = countAndGet('open').then(n => { playerNo = n; return n });
   if (location.hash.includes('#share')) { reset(8); setTimeout(() => end(false), 600); }
   if (location.hash.includes('#btn')) setTimeout(() => document.getElementById('startBtn').click(), 100);
   if (location.hash.startsWith('#play')) {
