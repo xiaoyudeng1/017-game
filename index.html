@@ -29,7 +29,7 @@
     transition:width .1s linear; }
 
   #grid { display:grid; }
-  .tile { border-radius:14px; cursor:pointer; transition:transform .1s ease, background .25s ease; }
+  .tile { border-radius:14px; cursor:pointer; transition:transform .1s ease, filter .35s ease; background-color:transparent; }
   .tile:active { transform:scale(.96); }
   .tile.wrong { animation:shake .28s; }
   @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
@@ -150,7 +150,7 @@
 
   // 十张场景，每关随机挑一张切成 n×n
   const SCENES = ['01-night-store','02-lantern-market','03-coral','04-rain-station','05-picnic',
-                  '06-flower-market','07-bookstore','08-rooftop','09-aquarium','10-dessert'];
+                  '06-flower-market','07-bookstore','08-rooftop','09-aquarium'];
   let curScene = '';
 
   function sceneUrl(i) { return 'assets/scenes/' + SCENES[i] + '.png'; }
@@ -172,8 +172,6 @@
     el.style.filter = gray > 0.02
       ? `grayscale(${gray.toFixed(2)}) brightness(${(1 - gray * 0.06).toFixed(3)})`
       : 'none';
-    // 图片没加载出来时的兜底底色
-    el.style.backgroundColor = `hsl(${hue} 55% ${light}%)`;
   }
 
   function buildLevel() {
