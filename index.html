@@ -148,6 +148,13 @@
 
   const minSat = 16;   // 目标块"几乎没有颜色"的饱和度
 
+  // 十张场景，每关随机挑一张切成 n×n
+  const SCENES = ['01-night-store','02-lantern-market','03-coral','04-rain-station','05-picnic',
+                  '06-flower-market','07-bookstore','08-rooftop','09-aquarium','10-dessert'];
+  let curScene = '';
+
+  function sceneUrl(i) { return 'assets/scenes/' + SCENES[i] + '.png'; }
+
   function layout(n) {
     const g = Math.max(6, Math.round(Math.min(innerWidth, innerHeight) * 0.012));
     const avail = Math.min(innerWidth, innerHeight) * 0.78;
@@ -157,8 +164,16 @@
     return g;
   }
 
-  function paint(el, sat, light) {
-    el.style.background = `hsl(${hue} ${sat}% ${light}%)`;
+  // 颜色被抽干 = 灰度。0 = 原色，1 = 全灰
+  let grayBase = 0, grayTarget = 0;
+  function paint(el, gray, light) {
+    gray = Math.max(0, Math.min(1, gray || 0));
+    el.dataset.gray = gray.toFixed(2);
+    el.style.filter = gray > 0.02
+      ? `grayscale(${gray.toFixed(2)}) brightness(${(1 - gray * 0.06).toFixed(3)})`
+      : 'none';
+    // 图片没加载出来时的兜底底色
+    el.style.backgroundColor = `hsl(${hue} 55% ${light}%)`;
   }
 
   function buildLevel() {
@@ -180,19 +195,32 @@
     tileEls = [];
     gridEl.innerHTML = '';
 
-    const normalSat = Math.max(22, 62 - level * 4);
-    const drop = Math.max(0.17, 0.55 - level * 0.035);
     const normalL = baseL;
 
+    // 底图保持颜色；目标那块褪成灰。难度 = 两者灰度差越来越小
+    grayBase = Math.min(0.40, level * 0.02);
+    const targetStrength = Math.max(0.34, 0.94 - level * 0.014);
+    grayTarget = Math.min(1, grayBase + (1 - grayBase) * targetStrength);
+
+    // 挑一张场景，按 n×n 切开贴到每一块上
+    curScene = sceneUrl(Math.floor(Math.random() * SCENES.length));
+    const boardPx = n * cell + (n - 1) * gap;
+
     for (let i = 0; i < total; i++) {
+      const r = Math.floor(i / n), c = i % n;
       const d = document.createElement('div');
       d.className = 'tile';
       d.style.width = d.style.height = cell + 'px';
+      // 这张场景的一小块
+      d.style.backgroundImage = `url("${curScene}")`;
+      d.style.backgroundSize = `${boardPx}px ${boardPx}px`;
+      d.style.backgroundPosition = `${-(c * (cell + gap))}px ${-(r * (cell + gap))}px`;
+      d.style.backgroundRepeat = 'no-repeat';
       const isTarget = i === targetIdx;
       if (reverseMode) {
-        paint(d, isTarget ? normalSat : minSat, isTarget ? normalL : baseL + 3 * drop);
+        paint(d, isTarget ? grayBase : grayTarget, normalL);
       } else {
-        paint(d, isTarget ? minSat : normalSat, isTarget ? baseL + 3 * drop : normalL);
+        paint(d, isTarget ? grayTarget : grayBase, normalL);
       }
       d.addEventListener('pointerdown', () => pick(i, d));
       gridEl.appendChild(d);
@@ -207,25 +235,25 @@
     if (MODES[mode].run && level >= 3) {
       runTimer = setInterval(swapTarget, 2000);
     }
-    // 机制三：褪色（只针对"正常色"的那些，慢慢逼近目标色）
+    // 机制三：褪色——周围的颜色慢慢褪成灰，跟目标拉平
     if (MODES[mode].fade) {
       if (!reverseMode) {
-        // 正常局：周围的颜色慢慢褪掉，跟目标拉平
-        let s = normalSat;
+        // 正常局：其它块逐渐变灰，越来越难找
+        let g = grayBase;
         fadeTimer = setInterval(() => {
           if (!playing) return;
-          s = Math.max(minSat + 1, s - 0.9);
+          g = Math.min(grayTarget - 0.02, g + 0.012);
           for (let i = 0; i < tileEls.length; i++) {
-            if (i !== targetIdx) paint(tileEls[i], Math.round(s), normalL);
+            if (i !== targetIdx) paint(tileEls[i], g, normalL);
           }
         }, 120);
       } else {
-        // 反转局：唯一有颜色的那一块也在褪，你得更快
-        let s = normalSat;
+        // 反转局：唯一还有颜色的那块也在褪，你得更快
+        let g = grayBase;
         fadeTimer = setInterval(() => {
           if (!playing) return;
-          s = Math.max(minSat + 1, s - 0.6);
-          paint(tileEls[targetIdx], Math.round(s), normalL);
+          g = Math.min(grayTarget - 0.02, g + 0.008);
+          paint(tileEls[targetIdx], g, normalL);
         }, 150);
       }
     }
@@ -241,10 +269,14 @@
     const [dr, dc] = dirs[Math.floor(Math.random() * dirs.length)];
     const j = (r + dr) * n + (c + dc);
 
-    // 交换外观
+    // 交换外观（背景切片 + 灰度）
     const a = tileEls[targetIdx], b = tileEls[j];
-    const bs = b.style.background, as = a.style.background;
-    a.style.background = bs; b.style.background = as;
+    const bs = b.style.backgroundPosition, as = a.style.backgroundPosition;
+    a.style.backgroundPosition = bs; b.style.backgroundPosition = as;
+    const bf = b.style.filter, af = a.style.filter;
+    a.style.filter = bf; b.style.filter = af;
+    const bg = b.dataset.gray, ag = a.dataset.gray;
+    a.dataset.gray = bg; b.dataset.gray = ag;
     targetIdx = j;
   }
 
@@ -490,6 +522,7 @@
   hudEl.style.display = 'none';
   const openPromise = countAndGet('open').then(n => { playerNo = n; return n });
   if (location.hash.includes('#share')) { reset(8); setTimeout(() => end(false), 600); }
+  const lvM = location.hash.match(/#lv(\d+)/); if (lvM) { reset(parseInt(lvM[1])); }
   if (location.hash.includes('#btn')) setTimeout(() => document.getElementById('startBtn').click(), 100);
   if (location.hash.startsWith('#play')) {
     const p = new URLSearchParams(location.hash.slice(1));
