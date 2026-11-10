@@ -178,7 +178,7 @@
   function buildLevel() {
     clearInterval(runTimer); clearInterval(fadeTimer);
 
-    n = hellMode ? 9 : Math.min(2 + Math.floor(level / 2), 8);
+    n = hellMode ? 7 : Math.min(2 + Math.floor(level / 2), 8);
     gap = layout(n);
     hue = Math.floor(Math.random() * 360);
     document.documentElement.style.setProperty('--h', hue);
@@ -198,7 +198,7 @@
 
     // 底图保持颜色；目标那块褪成灰。难度 = 两者灰度差越来越小
     grayBase = hellMode ? 0.46 : Math.min(0.40, level * 0.02);
-    const targetStrength = hellMode ? 0.24 : Math.max(0.34, 0.94 - level * 0.014);
+    const targetStrength = hellMode ? 0.34 : Math.max(0.34, 0.94 - level * 0.014);
     grayTarget = Math.min(1, grayBase + (1 - grayBase) * targetStrength);
 
     // 挑一张场景，按 n×n 切开贴到每一块上
@@ -301,7 +301,7 @@
 
   function startLevel() {
     buildLevel();
-    maxT = hellMode ? 9 : Math.max(4.5, 11 - level * 0.45);
+    maxT = hellMode ? 12 : Math.max(4.5, 11 - level * 0.45);
     timeLeft = maxT;
     playing = true;
     clearInterval(timer);
@@ -404,7 +404,7 @@
     over.classList.remove('hidden');
     document.getElementById('overtitle').textContent = win ? '看见到最后了' : '到这儿了';
     document.getElementById('overtext').textContent = win
-      ? (hellMode ? '地狱关。九乘九，只差 0.02 的灰，你居然看见了。' : '二十关（' + MODE_NAME[mode] + '）。最后那块几乎和背景一个颜色，你还是找到了。')
+      ? (hellMode ? '地狱关。七乘七，只剩一格还有颜色，你居然看见了。' : '二十关（' + MODE_NAME[mode] + '）。最后那块几乎和背景一个颜色，你还是找到了。')
       : '你停在第 ' + (level - 1) + ' 关（' + MODE_NAME[mode] + '）。';
     document.getElementById('overtext').style.display = 'none';
     document.getElementById('hellBtn').classList.toggle('hidden', !(win && !hellMode));
