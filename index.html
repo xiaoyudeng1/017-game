@@ -108,6 +108,7 @@
       <button class="btn" id="saveBtn">保存这张图</button>
       <button class="btn" id="againBtn">再来</button>
     </div>
+    <button class="btn hidden" id="hellBtn" style="margin-top:16px">还有一关 · 地狱</button>
     <p id="saveTip">手机长按图片保存</p>
   </div>
 </div>
@@ -165,7 +166,7 @@
   }
 
   // 颜色被抽干 = 灰度。0 = 原色，1 = 全灰
-  let grayBase = 0, grayTarget = 0;
+  let grayBase = 0, grayTarget = 0, hellMode = false;
   function paint(el, gray, light) {
     gray = Math.max(0, Math.min(1, gray || 0));
     el.dataset.gray = gray.toFixed(2);
@@ -177,7 +178,7 @@
   function buildLevel() {
     clearInterval(runTimer); clearInterval(fadeTimer);
 
-    n = Math.min(2 + Math.floor(level / 2), 8);
+    n = hellMode ? 9 : Math.min(2 + Math.floor(level / 2), 8);
     gap = layout(n);
     hue = Math.floor(Math.random() * 360);
     document.documentElement.style.setProperty('--h', hue);
@@ -185,7 +186,7 @@
     baseL = 52 + Math.floor(Math.random() * 8);
 
     // 十关以后反转：场上只剩一块还有颜色
-    reverseMode = MODES[mode].reverse && level >= 9;
+    reverseMode = hellMode ? true : (MODES[mode].reverse && level >= 9);
     hintEl.textContent = reverseMode ? '找出唯一还有颜色的' : '找出那个几乎没有颜色的';
 
     const total = n * n;
@@ -196,8 +197,8 @@
     const normalL = baseL;
 
     // 底图保持颜色；目标那块褪成灰。难度 = 两者灰度差越来越小
-    grayBase = Math.min(0.40, level * 0.02);
-    const targetStrength = Math.max(0.34, 0.94 - level * 0.014);
+    grayBase = hellMode ? 0.46 : Math.min(0.40, level * 0.02);
+    const targetStrength = hellMode ? 0.24 : Math.max(0.34, 0.94 - level * 0.014);
     grayTarget = Math.min(1, grayBase + (1 - grayBase) * targetStrength);
 
     // 挑一张场景，按 n×n 切开贴到每一块上
@@ -300,7 +301,7 @@
 
   function startLevel() {
     buildLevel();
-    maxT = Math.max(4.5, 11 - level * 0.45);
+    maxT = hellMode ? 9 : Math.max(4.5, 11 - level * 0.45);
     timeLeft = maxT;
     playing = true;
     clearInterval(timer);
@@ -403,9 +404,10 @@
     over.classList.remove('hidden');
     document.getElementById('overtitle').textContent = win ? '看见到最后了' : '到这儿了';
     document.getElementById('overtext').textContent = win
-      ? '二十关（' + MODE_NAME[mode] + '）。最后那块几乎和背景一个颜色，你还是找到了。'
+      ? (hellMode ? '地狱关。九乘九，只差 0.02 的灰，你居然看见了。' : '二十关（' + MODE_NAME[mode] + '）。最后那块几乎和背景一个颜色，你还是找到了。')
       : '你停在第 ' + (level - 1) + ' 关（' + MODE_NAME[mode] + '）。';
     document.getElementById('overtext').style.display = 'none';
+    document.getElementById('hellBtn').classList.toggle('hidden', !(win && !hellMode));
     count('end-' + (win ? 'win' : 'lv' + (level - 1)));
     openPromise.then(() => drawShareCard(win)).then(url => {
       if (!url) return;
@@ -430,6 +432,13 @@
     };
   });
   document.getElementById('startBtn').onclick = () => reset();
+  document.getElementById('hellBtn').onclick = () => {
+    hellMode = true;
+    document.getElementById('shareCard').style.display = 'none';
+    document.getElementById('saveTip').style.display = 'none';
+    document.getElementById('hellBtn').classList.add('hidden');
+    reset(21);
+  };
   document.getElementById('againBtn').onclick = () => {
     document.getElementById('shareCard').style.display = 'none';
     document.getElementById('saveTip').style.display = 'none';
@@ -521,6 +530,7 @@
   const openPromise = countAndGet('open').then(n => { playerNo = n; return n });
   if (location.hash.includes('#share')) { reset(8); setTimeout(() => end(false), 600); }
   const lvM = location.hash.match(/#lv(\d+)/); if (lvM) { reset(parseInt(lvM[1])); }
+  if (location.hash.includes('#hell')) { hellMode = true; reset(21); }
   if (location.hash.includes('#btn')) setTimeout(() => document.getElementById('startBtn').click(), 100);
   if (location.hash.startsWith('#play')) {
     const p = new URLSearchParams(location.hash.slice(1));
