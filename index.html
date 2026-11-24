@@ -103,6 +103,7 @@
   <div id="over" class="hidden">
     <h2 id="overtitle">到这儿了</h2>
     <p id="overtext"></p>
+    <p id="timeRec" style="display:none;font-size:26px;color:#8fa0c8;margin:6px 0 2px;letter-spacing:1px"></p>
     <img id="shareCard" alt="" />
     <div class="overbtns">
       <button class="btn" id="saveBtn">保存这张图</button>
@@ -348,6 +349,12 @@
     g.font = '42px "Microsoft YaHei", sans-serif';
     g.fillText(MODE_NAME[mode] + '模式', W / 2, 780);
 
+    if (win && runMs) {
+      g.fillStyle = newRecord ? '#ffd076' : '#8fa0c8';
+      g.font = '38px "Microsoft YaHei", sans-serif';
+      g.fillText((newRecord ? '新纪录 · ' : '用时 ') + fmtSec(runMs), W / 2, 840);
+    }
+
     // 一排小方块做装饰：一格是"没有颜色的"
     const n = 7, cell = 96, gap = 22;
     const totalW = n * cell + (n - 1) * gap;
@@ -398,9 +405,31 @@
     });
   }
 
+  // ── 计时与最好成绩（存在本地，不上传） ──
+  let runStart = 0;
+  let runMs = 0;
+  let bestMs = 0;
+  let newRecord = false;
+  const BEST_KEY = 'b017_best_ms';
+
+  function loadBest() {
+    try { bestMs = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0 } catch (e) { bestMs = 0 }
+  }
+  function saveBest(ms) {
+    try { localStorage.setItem(BEST_KEY, String(ms)) } catch (e) {}
+  }
+  function fmtSec(ms) { return (ms / 1000).toFixed(1) + ' 秒' }
+
   function end(win) {
     playing = false;
     clearInterval(timer); clearInterval(runTimer); clearInterval(fadeTimer);
+
+    newRecord = false;
+    if (win && !hellMode && runStart) {
+      runMs = Date.now() - runStart;
+      if (!bestMs || runMs < bestMs) { bestMs = runMs; saveBest(runMs); newRecord = true }
+    }
+
     over.classList.remove('hidden');
     document.getElementById('overtitle').textContent = win ? '看见到最后了' : '到这儿了';
     document.getElementById('overtext').textContent = win
@@ -408,6 +437,18 @@
       : '你停在第 ' + (level - 1) + ' 关（' + MODE_NAME[mode] + '）。';
     document.getElementById('overtext').style.display = 'none';
     document.getElementById('hellBtn').classList.toggle('hidden', !(win && !hellMode));
+
+    // 计时展示
+    const tEl = document.getElementById('timeRec');
+    if (win && !hellMode && runMs) {
+      tEl.style.display = 'block';
+      tEl.innerHTML = newRecord
+        ? '⏱ <b>' + fmtSec(runMs) + '</b> · 新纪录' + (bestMs && runMs !== bestMs ? '' : '')
+        : '⏱ ' + fmtSec(runMs) + ' · 最好 <b>' + fmtSec(bestMs) + '</b>';
+    } else {
+      tEl.style.display = 'none';
+    }
+
     count('end-' + (win ? 'win' : 'lv' + (level - 1)));
     openPromise.then(() => drawShareCard(win)).then(url => {
       if (!url) return;
@@ -419,6 +460,8 @@
   }
 
   function reset(lvl = 1) {
+    if (!bestMs) loadBest();
+    if (lvl === 1) { runStart = Date.now(); runMs = 0 }
     level = lvl; hudEl.style.display = 'flex'; over.classList.add('hidden'); intro.classList.add('hidden');
     timebar.style.width = '100%';
     startLevel();
@@ -531,6 +574,7 @@
   if (location.hash.includes('#share')) { reset(8); setTimeout(() => end(false), 600); }
   const lvM = location.hash.match(/#lv(\d+)/); if (lvM) { reset(parseInt(lvM[1])); }
   if (location.hash.includes('#hell')) { hellMode = true; reset(21); }
+  window.__game = { end, reset, get level() { return level } };  // 仅供测试
   if (location.hash.includes('#btn')) setTimeout(() => document.getElementById('startBtn').click(), 100);
   if (location.hash.startsWith('#play')) {
     const p = new URLSearchParams(location.hash.slice(1));
